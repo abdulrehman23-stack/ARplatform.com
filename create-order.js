@@ -1,0 +1,1 @@
+export default async function handler(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});if(!process.env.RAZORPAY_KEY_ID||!process.env.RAZORPAY_KEY_SECRET)return res.json({demo:true,message:'Razorpay is not configured.'});return res.status(501).json({error:'Connect official Razorpay SDK/API here and keep the secret server-side.'});}

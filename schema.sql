@@ -1,0 +1,16 @@
+create extension if not exists pgcrypto;
+create table profiles(id uuid primary key references auth.users(id) on delete cascade,full_name text,role text not null default 'student',xp int not null default 0,streak int not null default 0,created_at timestamptz default now());
+create table courses(id uuid primary key default gen_random_uuid(),slug text unique not null,title text not null,description text,level text,category text,price_inr int default 0,thumbnail_url text,published boolean default false,created_at timestamptz default now());
+create table modules(id uuid primary key default gen_random_uuid(),course_id uuid references courses(id) on delete cascade,title text not null,sort_order int default 0);
+create table lessons(id uuid primary key default gen_random_uuid(),module_id uuid references modules(id) on delete cascade,title text not null,description text,video_asset_id text,duration_seconds int,sort_order int default 0,is_preview boolean default false);
+create table enrollments(id uuid primary key default gen_random_uuid(),user_id uuid references profiles(id) on delete cascade,course_id uuid references courses(id) on delete cascade,payment_provider text,payment_id text,amount_inr int,status text default 'active',enrolled_at timestamptz default now(),unique(user_id,course_id));
+create table lesson_progress(user_id uuid references profiles(id) on delete cascade,lesson_id uuid references lessons(id) on delete cascade,progress_seconds int default 0,completed boolean default false,updated_at timestamptz default now(),primary key(user_id,lesson_id));
+create table quiz_attempts(id uuid primary key default gen_random_uuid(),user_id uuid references profiles(id) on delete cascade,lesson_id uuid references lessons(id) on delete cascade,score int default 0,max_score int default 0,answers jsonb,created_at timestamptz default now());
+create table certificates(id uuid primary key default gen_random_uuid(),user_id uuid references profiles(id) on delete cascade,course_id uuid references courses(id) on delete cascade,verification_code text unique not null,issued_at timestamptz default now(),unique(user_id,course_id));
+create table ai_usage(id uuid primary key default gen_random_uuid(),user_id uuid references profiles(id) on delete set null,model text,input_tokens int default 0,output_tokens int default 0,created_at timestamptz default now());
+alter table profiles enable row level security;alter table courses enable row level security;alter table enrollments enable row level security;alter table lesson_progress enable row level security;alter table certificates enable row level security;
+create policy "published courses" on courses for select using(published=true or auth.uid() in(select id from profiles where role in('admin','instructor')));
+create policy "own profile" on profiles for select using(auth.uid()=id);
+create policy "own enrollments" on enrollments for select using(auth.uid()=user_id);
+create policy "own progress" on lesson_progress for all using(auth.uid()=user_id) with check(auth.uid()=user_id);
+create policy "own certificates" on certificates for select using(auth.uid()=user_id);
